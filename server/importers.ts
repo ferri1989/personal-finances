@@ -49,17 +49,19 @@ export function readDocument(buffer: Buffer, filename: string, headerRow?: numbe
   };
   if (mapping.date < 0) { mapping.date = mapping.valueDate; mapping.valueDate = -1; }
   const metadata = all.slice(0, index);
-  const accountRow = metadata.find(row => row.some(v => normal(v).includes('numero de cuenta') || normal(v) === 'cuenta:'));
+  // ING tarjeta de crédito: «Tarjeta Crédito · Número de tarjeta: …» y columnas FECHA VALOR / ESTADO / IMPORTE (€), sin saldo.
+  const isIngCard = metadata.some(row => row.some(v => normal(v).startsWith('tarjeta credito'))) && metadata.some(row => row.some(v => normal(v).includes('numero de tarjeta'))) && headers.some(h => normal(h) === 'estado') && headers.some(h => normal(h) === 'fecha valor');
+  const accountRow = metadata.find(row => row.some(v => normal(v).includes('numero de cuenta') || normal(v).includes('numero de tarjeta') || normal(v) === 'cuenta:'));
   const ownerRow = metadata.find(row => row.some(v => normal(v).includes('titular:')));
   const afterLabel = (row: unknown[] | undefined, needle: string) => {
     if (!row) return '';
     const at = row.findIndex(v => normal(v).includes(needle));
     return text(row.slice(at + 1).find(v => text(v)));
   };
-  const accountLabel = accountRow?.some(v => normal(v).includes('numero de cuenta')) ? 'numero de cuenta' : 'cuenta:';
+  const accountLabel = accountRow?.some(v => normal(v).includes('numero de tarjeta')) ? 'numero de tarjeta' : accountRow?.some(v => normal(v).includes('numero de cuenta')) ? 'numero de cuenta' : 'cuenta:';
   const number = afterLabel(accountRow, accountLabel).replace(/\s+/g, '');
   const canonicalNumber = /^ES\d{22}$/.test(number) ? number.slice(4) : number;
-  const detectedBank: ImportDocumentInfo['detectedBank'] = isIng ? 'ING' : canonicalNumber.startsWith('0073') && headers.some(h => normal(h) === 'fecha operacion') ? 'Openbank' : canonicalNumber.startsWith('0081') && headers.some(h => normal(h) === 'f. operativa') ? 'Sabadell' : /myinvestor/i.test(filename) && headers.some(h => normal(h) === 'divisa') ? 'MyInvestor' : null;
+  const detectedBank: ImportDocumentInfo['detectedBank'] = isIng || isIngCard ? 'ING' : canonicalNumber.startsWith('0073') && headers.some(h => normal(h) === 'fecha operacion') ? 'Openbank' : canonicalNumber.startsWith('0081') && headers.some(h => normal(h) === 'f. operativa') ? 'Sabadell' : /myinvestor/i.test(filename) && headers.some(h => normal(h) === 'divisa') ? 'MyInvestor' : null;
   const indexedRows = all.slice(index + 1).map((row, i) => ({ row, number: index + i + 2 })).filter(item => item.row.some(v => text(v)));
   const rows = indexedRows.map(item => item.row);
   if (rows.length > 10000) throw new AccountError(400, 'El extracto supera los 10.000 movimientos. Divide la exportación.');
@@ -68,7 +70,7 @@ export function readDocument(buffer: Buffer, filename: string, headerRow?: numbe
   if ((currencyCol >= 0 && rows.some(row => !/^(EUR|€)$/i.test(text(row[currencyCol])))) || (metadataCurrency && !/^EUR$/i.test(afterLabel(metadataCurrency, 'divisa:')))) throw new AccountError(400, 'Este piloto solo importa movimientos en euros.');
   if (!rows.length) throw new AccountError(400, 'El extracto no contiene movimientos.');
   const info: ImportDocumentInfo = {
-    token: randomUUID(), filename: basename(filename).slice(0, 200), detectedBank,
+    token: randomUUID(), filename: basename(filename).slice(0, 200), detectedBank, ...(isIngCard ? { creditCard: true } : {}),
     headers, mapping, sample: rows.slice(0, 3).map(row => headers.map((_, i) => text(row[i]))), rowCount: rows.length,
     lastFour: number ? number.slice(-4) : '', owner: afterLabel(ownerRow, 'titular:'),
     firstDate: '', lastDate: '',
@@ -78,7 +80,7 @@ export function readDocument(buffer: Buffer, filename: string, headerRow?: numbe
     try { const dates = rows.map(row => date(row[mapping.date], date1904)).sort(); info.firstDate = dates[0]; info.lastDate = dates.at(-1)!; }
     catch { /* The user can choose another date column in the mapping step. */ }
   }
-  return { info, rows, sourceRows: indexedRows.map(row => row.number), firstDataRow: index + 2, original: buffer, digest: hash(buffer), identity: canonicalNumber ? hash(`${detectedBank ?? 'bank'}:${canonicalNumber}`) : '', date1904 };
+  return { info, rows, sourceRows: indexedRows.map(row => row.number), firstDataRow: index + 2, original: buffer, digest: hash(buffer), identity: canonicalNumber ? hash(`${detectedBank ?? 'bank'}${isIngCard ? '-card' : ''}:${canonicalNumber}`) : '', date1904 };
 }
 
 function money(value: unknown): number {

@@ -82,6 +82,8 @@ kbd{font:inherit;font-size:11px;min-width:22px;height:22px;display:inline-grid;p
 .group-card.warning .group-bar span{background:#d1a03d}
 .group-card.over .group-bar span{background:#c4623f}
 .group-caption{font-size:12px;color:#7f8e84}
+.budget-opening{padding:12px 0;border-bottom:1px solid #e1e7dc;margin-bottom:15px}.budget-opening summary{font-size:12px;color:#426b47;cursor:pointer;margin:12px 0}.close-preview{max-height:48vh;margin:18px 0;border:1px solid #e1e7dc;border-radius:8px}.close-preview thead th{position:sticky;top:0;background:#f6f8f3}.close-preview td{font-variant-numeric:tabular-nums}.close-preview td small{display:block;margin-top:6px;color:#71836b;font-size:10px}
+.close-preview tbody th{font-size:12px;letter-spacing:0;font-weight:500;background:#fff;color:#435e4e;text-align:left;padding:14px 16px}.close-preview td{font-size:12px;padding:14px 16px}.close-preview thead th{font-size:10px;letter-spacing:.4px}
 .group-lines{list-style:none;margin:14px 0 0;padding:12px 0 0;border-top:1px solid #edf0ea;display:flex;flex-direction:column;gap:14px}
 .line-top{display:flex;justify-content:space-between;gap:12px;font-size:14px}
 .line-name{color:#243b35;font-weight:500}
@@ -108,3 +110,53 @@ kbd{font:inherit;font-size:11px;min-width:22px;height:22px;display:inline-grid;p
   .inbox-movement{flex-direction:column;align-items:flex-start}
   .month-income li{grid-template-columns:1fr auto;}
 }
+
+/* Saldo del presupuesto (como el «Resumen» de la hoja) y cajas en negativo */
+.hero-side .budget-balance small{display:block}
+.hero-side .budget-balance .balance-hint{margin-top:6px;font-size:12px;line-height:1.45;color:#5f6f64}
+.negative-boxes{background:#fff;border:1px solid #f0cfc0;border-radius:16px;padding:20px 24px}
+.negative-boxes header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:10px}
+.negative-boxes h2{font-size:18px;font-weight:650;color:#8e4a33}
+.negative-boxes header p{font-size:13px;color:#7d6a62;margin-top:4px;max-width:640px;line-height:1.5}
+.negative-boxes header>strong{font-size:24px;color:#b0503a;white-space:nowrap;font-variant-numeric:tabular-nums}
+.negative-boxes ul{list-style:none;margin:0;padding:0}
+.negative-boxes li{display:grid;grid-template-columns:1fr auto auto;gap:18px;align-items:center;padding:12px 0;border-top:1px solid #f5e6df}
+.nb-name{font-size:15px;font-weight:600;color:#243b35}
+.nb-name small{display:block;font-size:12px;font-weight:400;color:#86918a;margin-top:2px}
+.nb-amount{font-size:17px;font-weight:650;color:#b0503a;font-variant-numeric:tabular-nums}
+.negative-boxes .button{padding:9px 18px;font-size:13px}
+.boxes-ok{display:flex;align-items:center;gap:8px;font-size:14px;color:#2e6a40;background:#eef6ea;border:1px solid #cfe2c7;border-radius:12px;padding:12px 16px}
+.move-link{margin-top:6px;background:none;border:1px dashed #cdd8c8;border-radius:8px;padding:5px 10px;font-size:12px;color:#4d6a58}
+.move-link:hover{border-color:#3f8a63;color:#245546;background:#f3f9f1}
+.move-link.cover{border:1px solid #e3a58d;color:#a2492d;background:#fdf3ee;font-weight:600}
+.move-dialog{max-width:620px}
+.move-target{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 18px}
+.move-target>div{background:#f6f8f3;border-radius:10px;padding:10px 12px}
+.move-target span{display:block;font-size:12px;color:#7a887e}
+.move-target strong{font-size:17px;color:#243b35;font-variant-numeric:tabular-nums}
+.move-target .neg{background:#fbece5}.move-target .neg strong{color:#b0503a}
+.move-question{font-size:14px;font-weight:600;color:#3f5248;margin:16px 0 8px}
+.move-sources{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;padding-right:4px}
+.move-source{display:flex;align-items:center;gap:12px;border:1px solid #dfe6d8;border-radius:10px;padding:10px 12px;cursor:pointer;font-size:14px;color:#243b35}
+.move-source.selected{border:2px solid #3f8a63;background:#f3f9f1}
+.move-source.next,.move-source.unallocated{background:#fbfaf3}
+.move-source.selected.next,.move-source.selected.unallocated{background:#f3f9f1}
+.move-source span{flex:1;font-weight:600}
+.move-source small{display:block;font-weight:400;font-size:12px;color:#7a887e;margin-top:2px}
+.move-source em{font-style:normal;font-size:11px;color:#b0503a}
+.move-summary{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#4b5a50;background:#f6f8f3;border-radius:10px;padding:10px 12px;margin-top:12px}
+.move-summary .neg{color:#b0503a}
+@media (max-width:700px){.negative-boxes li{grid-template-columns:1fr auto}.negative-boxes .button{grid-column:1/-1}.move-target{grid-template-columns:1fr 1fr 1fr}}
+.move-source input[type=radio]{width:18px;height:18px;flex:0 0 18px;margin:0;padding:0;accent-color:#3f8a63;box-shadow:none}
+.account-dialog.move-dialog label.move-source{display:flex;flex-direction:row;align-items:center;gap:12px;margin:0}
+.account-dialog.move-dialog label.move-source span{display:block}
+.account-dialog.move-dialog .move-source input[type=radio]{display:inline-block;width:18px;height:18px;margin:0;padding:0}
+.account-dialog.move-dialog .move-source{font-size:14px;color:#243b35}
+.next-month-badge{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;color:#2e6a40;background:#e6f2e2;border-radius:99px;padding:2px 8px}
+.payroll-setting{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:#f6f8f3;border-radius:10px;padding:10px 14px;margin:10px 0 6px;font-size:13px;color:#5a6f60;line-height:1.5}
+.payroll-setting p{flex:1;min-width:260px}
+.payroll-setting b{color:#243b35}
+.payroll-setting label{display:flex;align-items:center;gap:8px;font-weight:600;color:#3f5248;white-space:nowrap}
+.payroll-setting select{font-size:13px;padding:6px 10px;border:1px solid #dfe6d8;border-radius:8px;background:#fff}
+.hero-reserves{display:block;margin-top:6px;font-size:13px;color:#7a6a3a;background:#faf6e8;border-radius:8px;padding:6px 10px;width:fit-content}.hero-reserves b{color:#5d4f22}
+.hero-cards{display:block;margin-top:6px;font-size:13px;color:#4a5b78;background:#eef2f8;border-radius:8px;padding:6px 10px;width:fit-content}.hero-cards b{color:#2b3c5a}

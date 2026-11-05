@@ -4,8 +4,10 @@ export const banks = ['ING', 'Openbank', 'Sabadell', 'MyInvestor', 'Otro', 'Efec
 export const accountTypes = {
   current: 'Cuenta corriente',
   savings: 'Cuenta de ahorro',
+  deposit: 'Depósito bancario',
   investment_cash: 'Efectivo de inversión',
   cash: 'Efectivo',
+  credit_card: 'Tarjeta de crédito',
 } as const;
 
 export function validDate(value: string): boolean {
@@ -14,15 +16,29 @@ export function validDate(value: string): boolean {
   return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
-export const accountInputSchema = z.object({
+export const accountFieldsSchema = z.object({
   name: z.string().trim().min(1, 'Escribe un nombre para la cuenta.').max(80),
   bank: z.enum(banks),
-  type: z.enum(['current', 'savings', 'investment_cash', 'cash']),
+  type: z.enum(['current', 'savings', 'deposit', 'investment_cash', 'cash', 'credit_card']),
   owner: z.string().trim().max(80).default(''),
   lastFour: z.string().regex(/^(\d{4})?$/, 'Introduce solo los cuatro últimos dígitos.').default(''),
   openingDate: z.string().refine(validDate, 'La fecha del saldo inicial no es válida.'),
   openingBalanceCents: z.number().int().min(-1_000_000_000_000).max(1_000_000_000_000),
+  interestRate: z.number().min(0).max(100).optional(),
+  maturityDate: z.string().refine(validDate, 'La fecha de vencimiento no es válida.').optional(),
 }).strict();
+
+export const accountInputSchema = accountFieldsSchema.superRefine((input, ctx) => {
+  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  if (input.type === 'deposit') {
+    if (input.openingBalanceCents <= 0) issue('openingBalanceCents', 'El importe del depósito debe ser mayor que cero.');
+    if (input.interestRate === undefined) issue('interestRate', 'Indica el interés anual del depósito.');
+    if (!input.maturityDate) issue('maturityDate', 'Indica la fecha de vencimiento del depósito.');
+    else if (input.maturityDate <= input.openingDate) issue('maturityDate', 'El vencimiento debe ser posterior a la fecha de inicio.');
+  } else if (input.interestRate !== undefined || input.maturityDate !== undefined) {
+    issue('type', 'Los datos de depósito solo se pueden indicar en un depósito bancario.');
+  }
+});
 
 export type AccountInput = z.infer<typeof accountInputSchema>;
 export type Account = AccountInput & {

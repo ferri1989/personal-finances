@@ -15,6 +15,8 @@ export type ImportDocumentInfo = {
   token: string;
   filename: string;
   detectedBank: 'ING' | 'Openbank' | 'Sabadell' | 'MyInvestor' | null;
+  /** El extracto es de una tarjeta de crédito: sus compras son deuda que se cobra el mes siguiente. */
+  creditCard?: boolean;
   headers: string[];
   mapping: ColumnMapping;
   sample: string[][];
@@ -43,6 +45,7 @@ export type ImportPlanInfo = {
   accountId: string | null;
   accountName: string;
   firstImport: boolean;
+  extendStart?: boolean;
   startDate: string;
   openingBalanceCents: number;
   firstDate: string;
@@ -75,6 +78,9 @@ export type Movement = {
   subcategory: string;
   comment: string;
   filename: string;
+  lineId: string | null;
+  excluded: boolean;
+  assignmentVersion: number;
 };
 
 export type ImportBatch = {

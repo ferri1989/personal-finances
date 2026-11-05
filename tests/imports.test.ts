@@ -150,5 +150,88 @@ test('API recibe archivo binario, genera vista previa y confirma sin duplicar', 
     assert.equal(imported.statusCode, 200);
     assert.equal(imported.json().imported, 2);
     assert.equal((await app.inject({ method: 'GET', url: '/api/movements', headers })).json().movements.length, 2);
+    const list = async () => (await app.inject({ method: 'GET', url: '/api/movements', headers })).json().movements;
+    const movement = (await list())[0];
+    assert.equal(movement.lineId, null);
+    assert.equal(movement.excluded, false);
+    assert.equal(movement.assignmentVersion, 0);
+    const assign = (lineId: string | null, excluded: boolean, expectedVersion: number) => app.inject({
+      method: 'POST', url: '/api/budget/assignments', headers,
+      payload: { items: [{ entryId: movement.id, expectedVersion }], lineId, excluded },
+    });
+    assert.equal((await assign('comida', false, 0)).statusCode, 200);
+    let saved = (await list()).find((row: { id: string }) => row.id === movement.id);
+    assert.equal(saved.lineId, 'comida');
+    assert.equal(saved.assignmentVersion, 1);
+    assert.equal(saved.category, 'Compras', 'conserva la categoría bancaria original');
+    const budgetRows = (await app.inject({ method: 'GET', url: '/api/budget/2026/movements', headers })).json().movements;
+    assert.equal(budgetRows.find((row: { id: string }) => row.id === movement.id).lineId, 'comida');
+    assert.equal((await assign('gasolina', false, 0)).statusCode, 409, 'rechaza cambios con una versión antigua');
+    assert.equal((await assign('gasolina', false, 1)).statusCode, 200);
+    assert.equal((await list())[0].lineId, 'gasolina');
+    assert.equal((await assign(null, true, 2)).statusCode, 200);
+    saved = (await list())[0];
+    assert.equal(saved.lineId, null);
+    assert.equal(saved.excluded, true);
+    assert.equal(saved.assignmentVersion, 3);
+    assert.equal((await assign(null, false, 3)).statusCode, 200);
+    saved = (await list())[0];
+    assert.equal(saved.lineId, null);
+    assert.equal(saved.excluded, false);
+    assert.equal(saved.assignmentVersion, 4);
   } finally { await app.close(); }
+});
+
+test('adelantar el inicio de una cuenta existente si el extracto cuadra con su saldo inicial', () => {
+  const store = new AccountStore(':memory:');
+  try {
+    const service = new ImportService(store);
+    const first = service.preview(ingFile([jan3, jan2]), 'desde-dia-2.csv');
+    const original = service.commit(service.prepare({ token: first.token, mapping: first.mapping, accountId: null, newAccount: bankAccount, startDate: '2026-01-02' }).id, true);
+    assert.equal(original.account.openingDate, '2026-01-02');
+    assert.equal(original.account.openingBalanceCents, 11000);
+    const full = service.preview(ingFile([jan3, jan2, jan1]), 'completo.csv');
+    const plan = service.prepare({ token: full.token, mapping: full.mapping, accountId: original.account.id, startDate: '2026-01-01' });
+    assert.equal(plan.extendStart, true);
+    assert.equal(plan.openingBalanceCents, 10000);
+    assert.equal(plan.newCount, 1);
+    assert.equal(plan.reconciliation, 'matches');
+    assert.equal(plan.resultingBalanceCents, 10700);
+    assert.throws(() => service.commit(plan.id, false), { statusCode: 400 });
+    const result = service.commit(plan.id, true);
+    assert.equal(result.account.openingDate, '2026-01-01');
+    assert.equal(result.account.openingBalanceCents, 10000);
+    assert.equal(result.account.balanceCents, 10700, 'el saldo actual no cambia');
+    assert.equal(service.movements().length, 3);
+    // Un extracto que no cuadra con el saldo inicial no puede adelantar la fecha.
+    const other = service.preview(ingFile([jan1.replace('110,00', '105,00'), '31/12/2025;Compras;Otros;X;;-5,00;95,00']), 'raro.csv');
+    assert.throws(() => service.prepare({ token: other.token, mapping: other.mapping, accountId: original.account.id, startDate: '2025-12-31' }), { statusCode: 409 });
+  } finally { store.close(); }
+});
+
+test('tarjeta de crédito ING: se detecta, se importa como deuda y el cargo del día 5 la paga sin contar dos veces', () => {
+  const store = new AccountStore(':memory:');
+  try {
+    const service = new ImportService(store);
+    const card = Buffer.from('Tarjeta Crédito;    Número de tarjeta:      ;5160 9734 3100 2057\n;    Titular:      ;PRUEBA\n;    Fecha de exportación:;05/11/2026 23:45h\n\nFECHA VALOR;CATEGORÍA;SUBCATEGORÍA;DESCRIPCION;COMENTARIO;;ESTADO;IMPORTE (€)\n04/11/2026;Compras;Otros;AIRSERV;;;Pendiente de liquidar;-1\n03/11/2026;Ocio;Apuestas;TULOTERO;;;Pendiente de liquidar;-20\n', 'utf8');
+    const doc = service.preview(card, 'tarjeta.csv');
+    assert.equal(doc.creditCard, true);
+    assert.equal(doc.detectedBank, 'ING');
+    assert.equal(doc.lastFour, '2057');
+    const cardAccount = { name: 'Tarjeta ING', bank: 'ING' as const, type: 'credit_card' as const, owner: '', lastFour: '2057' };
+    assert.throws(() => service.prepare({ token: doc.token, mapping: doc.mapping, accountId: null, newAccount: { ...cardAccount, type: 'current' }, startDate: '2026-11-03', manualOpeningCents: 0 }), { statusCode: 400 });
+    const imported = service.commit(service.prepare({ token: doc.token, mapping: doc.mapping, accountId: null, newAccount: cardAccount, startDate: '2026-11-03', manualOpeningCents: 0 }).id, true);
+    assert.equal(imported.account.balanceCents, -2100, 'la deuda de la tarjeta');
+    // Cargo del día 5 en la cuenta corriente.
+    const bank = service.preview(ingFile(['05/12/2026;Otros;Otros;Cargo mensual Tarjeta crédito;;-21,00;79,00', '01/12/2026;Ingresos;Otros;Ingreso;;100,00;100,00']), 'ing.csv');
+    const current = service.commit(service.prepare({ token: bank.token, mapping: bank.mapping, accountId: null, newAccount: bankAccount, startDate: '2026-12-01' }).id, true);
+    const candidates = store.cardPaymentCandidates(imported.account.id);
+    assert.equal(candidates.length, 1);
+    const paid = store.registerCardPayment(imported.account.id, candidates[0].id, imported.account.version);
+    assert.equal(paid.balanceCents, 0, 'el cargo salda la tarjeta');
+    assert.equal(store.get(current.account.id).balanceCents, 7900);
+    assert.equal(store.cardPaymentCandidates(imported.account.id).length, 0, 'no se puede usar dos veces');
+    const excluded = store.db.prepare('SELECT COUNT(*) AS n FROM budget_allocations WHERE excluded=1').get()!.n;
+    assert.equal(excluded, 2, 'cargo y pago quedan como traspaso interno');
+  } finally { store.close(); }
 });

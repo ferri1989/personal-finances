@@ -1,0 +1,44 @@
+.sheet-panel{background:#fff;border:1px solid #dfe6d8;border-radius:14px;overflow:hidden;margin-bottom:24px}
+.sheet-toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #e7ece3}
+.sheet-modes{display:flex;background:#eef2ea;border-radius:9px;padding:3px}
+.sheet-modes button{border:0;background:none;padding:7px 14px;border-radius:7px;font-size:13px;color:#5a6f60}
+.sheet-modes button.active{background:#fff;color:#243b35;font-weight:600;box-shadow:0 1px 3px #0000001a}
+.sheet-resumen{font-size:14px;color:#4b5a50;padding:6px 12px;border-radius:8px;background:#f6f8f3}
+.sheet-resumen strong{font-variant-numeric:tabular-nums}
+.sheet-resumen.ok{background:#eaf4e5;color:#2e6a40}.sheet-resumen.bad{background:#fbece5;color:#a55b3d}.sheet-resumen.warn{background:#f8f2dd;color:#8a742c}
+.sheet-check{display:flex;align-items:center;gap:6px;font-size:13px;color:#6d7d72;margin-left:auto}
+.sheet-toolbar .text-button{font-size:12px}
+.sheet-scroll{overflow:auto;max-height:calc(100vh - 220px)}
+table.sheet{border-collapse:separate;border-spacing:0;width:100%;white-space:nowrap;font-size:13px;font-variant-numeric:tabular-nums}
+.sheet th,.sheet td{padding:0;border-bottom:1px solid #eef1eb;border-right:1px solid #f2f4f0;background:#fff;font-weight:400;text-align:right;color:#243b35;letter-spacing:0}
+.sheet thead th{position:sticky;top:0;z-index:2;background:#f6f8f3;font-size:12px;font-weight:600;color:#5a6f60;text-transform:capitalize;padding:0;text-align:right}
+.sheet thead th button{background:none;border:0;width:100%;padding:9px 8px;text-align:right;font-weight:600;color:inherit;text-transform:capitalize}
+.sheet thead th button:hover{color:#245546;text-decoration:underline}
+.sheet .sheet-name{position:sticky;left:0;z-index:1;text-align:left;min-width:230px;max-width:260px;padding:0 10px;border-right:1px solid #dfe6d8;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.sheet thead .sheet-name{z-index:3;padding:9px 10px;font-size:13px;color:#243b35}
+.sheet .sheet-name button{background:none;border:0;padding:6px 0;font:inherit;color:inherit;text-align:left;width:100%;overflow:hidden;text-overflow:ellipsis}
+.sheet .sheet-name button:hover{color:#245546;text-decoration:underline}
+.sheet td{min-width:58px}
+.sheet td>button{display:block;position:relative;width:100%;min-height:29px;background:none;border:0;padding:5px 8px;text-align:right;font:inherit;color:inherit}
+.sheet td>button:hover{background:#eef6ea;outline:1px solid #9dc4ab;outline-offset:-1px}
+.sheet td.is-today,.sheet th.is-today{background:#f3f8ef}
+.sheet thead th.is-today{background:#e2efdc;color:#245546}
+.sheet td.is-past{color:#5d6b62}
+.sheet td.spent{background:#f4f8f1}
+.sheet td.over{background:#f6c9bc;color:#8e2f17;font-weight:600}
+.sheet td.neg{color:#b0503a;font-weight:600}
+.sheet .sheet-total{font-weight:650;background:#fafbf8;padding:5px 10px;border-left:1px solid #dfe6d8}
+.sheet .sheet-group{text-align:left;font-size:12px;color:#86918a;padding:5px 10px;min-width:120px}
+.sheet thead .sheet-group{text-align:left;padding:9px 10px}
+.sheet-summary td{padding:7px 8px}
+.sheet-summary .sheet-name{font-weight:600;padding:7px 10px}
+.sheet-summary tr:last-child th,.sheet-summary tr:last-child td{border-bottom:2px solid #c9d6c3}
+.sheet-diff td.zero{color:#2e6a40;font-weight:600}.sheet-diff td.neg{background:#fbece5;color:#a55b3d;font-weight:650}.sheet-diff td.pos{color:#8a742c;font-weight:600}
+.sheet-section th,.sheet-section td{background:#f6f8f3;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:#7a887e;font-weight:600;padding:7px 10px}
+.sheet-subtotal th,.sheet-subtotal td{background:#f6f8f3;font-weight:650;padding:7px 8px;border-top:2px solid #c9d6c3}
+.carry-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#d1a03d;position:absolute;top:4px;right:3px}
+.sheet-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:#7a887e;padding:10px 16px;border-top:1px solid #e7ece3}
+.sheet-legend .lg{display:inline-block;width:14px;height:12px;border-radius:3px;margin-left:8px}
+.sheet-legend .lg.over{background:#f6c9bc}.sheet-legend .lg.spent{background:#e7f0e2}.sheet-legend .lg.today{background:#e2efdc;border:1px solid #b9d3ae}
+.sheet-legend .carry-dot{position:static;margin-left:8px}
+table.sheet.narrow{width:auto}.sheet.narrow td{min-width:90px}

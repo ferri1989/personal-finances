@@ -2,9 +2,10 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { z } from 'zod';
 import { accountInputSchema } from '../shared/accounts.js';
+import { reconcileTransfers } from '../shared/reconciliation.js';
 import { AccountError, AccountStore } from './database.js';
 import { ImportService, planSchema } from './import-service.js';
-import { BudgetService, budgetAssignmentSchema, budgetCellSchema, budgetLineSchema } from './budget-service.js';
+import { BudgetService, budgetAssignmentSchema, budgetCellSchema, budgetLineSchema, budgetCloseSchema, budgetCloseCommitSchema, budgetSettingsSchema } from './budget-service.js';
 
 export async function buildApp(store: AccountStore, clientRoot?: string) {
   const app = Fastify({ logger: false, bodyLimit: 32_768 });
@@ -37,8 +38,15 @@ export async function buildApp(store: AccountStore, clientRoot?: string) {
     return reply.code(500).send({ message: 'No se han podido guardar los cambios. Inténtalo de nuevo.' });
   });
 
-  app.get('/api/health', async () => ({ status: 'ok', app: 'personal-finances', version: 3 }));
-  app.get('/api/accounts', async () => ({ accounts: store.list() }));
+  app.get('/api/health', async () => ({ status: 'ok', app: 'personal-finances', version: 5 }));
+  app.get('/api/accounts', async () => ({ accounts: store.list(), reconciliation: reconcileTransfers(
+    store.db.prepare(`SELECT e.id,e.account_id,e.date,e.amount_cents,a.name FROM entries e
+      JOIN accounts a ON a.id=e.account_id JOIN budget_allocations b ON b.entry_id=e.id
+      WHERE b.excluded=1 AND e.kind='movement'`).all().map(row => ({
+        id: String(row.id), accountId: String(row.account_id), accountName: String(row.name),
+        date: String(row.date), amountCents: Number(row.amount_cents),
+      })),
+  ) }));
   app.post('/api/accounts', async (request, reply) => {
     const account = store.create(accountInputSchema.parse(request.body));
     return reply.code(201).send({ account });
@@ -46,7 +54,7 @@ export async function buildApp(store: AccountStore, clientRoot?: string) {
   const paramsSchema = z.object({ id: z.uuid() });
   app.put('/api/accounts/:id', async request => {
     const { id } = paramsSchema.parse(request.params);
-    const { expectedVersion, ...input } = accountInputSchema.extend({ expectedVersion: z.number().int().positive() }).parse(request.body);
+    const { expectedVersion, ...input } = accountInputSchema.safeExtend({ expectedVersion: z.number().int().positive() }).parse(request.body);
     return { account: store.update(id, input, expectedVersion) };
   });
   app.patch('/api/accounts/:id/archive', async request => {
@@ -55,6 +63,25 @@ export async function buildApp(store: AccountStore, clientRoot?: string) {
     return { account: store.setArchived(id, archived, expectedVersion) };
   });
 
+  app.delete('/api/accounts/:id', async request => {
+    const { id } = paramsSchema.parse(request.params);
+    const { expectedVersion } = z.object({ expectedVersion: z.coerce.number().int().positive() }).strict().parse(request.query);
+    return store.deleteAccount(id, expectedVersion);
+  });
+  app.get('/api/accounts/:id/card-payments', async request => {
+    const { id } = paramsSchema.parse(request.params);
+    return { candidates: store.cardPaymentCandidates(id) };
+  });
+  app.post('/api/accounts/:id/card-payments', async request => {
+    const { id } = paramsSchema.parse(request.params);
+    const { entryId, expectedVersion } = z.object({ entryId: z.uuid(), expectedVersion: z.number().int().positive() }).strict().parse(request.body);
+    return { account: store.registerCardPayment(id, entryId, expectedVersion) };
+  });
+  app.post('/api/accounts/:id/mature', async request => {
+    const { id } = paramsSchema.parse(request.params);
+    const { date, expectedVersion } = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), expectedVersion: z.number().int().positive() }).strict().parse(request.body);
+    return { account: store.matureDeposit(id, date, expectedVersion) };
+  });
   app.post('/api/imports/preview', { bodyLimit: 5 * 1024 * 1024 }, async request => {
     if (!Buffer.isBuffer(request.body)) throw new AccountError(400, 'Adjunta el archivo de movimientos.');
     let filename: string;
@@ -71,10 +98,21 @@ export async function buildApp(store: AccountStore, clientRoot?: string) {
   });
   app.get('/api/movements', async () => ({ movements: imports.movements(), batches: imports.batches() }));
   app.get('/api/budget/lines',async()=>({lines:budget.lines()}));
+  app.post('/api/budget/close/preview',async request=>budget.closePreview(budgetCloseSchema.parse(request.body).period));
+  app.post('/api/budget/close',async request=>{
+    const input=budgetCloseCommitSchema.parse(request.body);
+    return budget.closeMonth(input.period,input.fingerprint);
+  });
+  app.post('/api/budget/reopen',async request=>budget.reopenMonth(budgetCloseSchema.parse(request.body).period));
+  app.put('/api/budget/opening',async request=>{
+    const input=z.object({lineId:z.string().min(1).max(100),period:budgetCloseSchema.shape.period,amountCents:z.number().int().min(-1e12).max(1e12),expectedVersion:z.number().int().positive()}).strict().parse(request.body);
+    return budget.updateOpening(input.lineId,input.period,input.amountCents,input.expectedVersion);
+  });
   app.get('/api/budget/:year',async request=>{
     const {year}=z.object({year:z.coerce.number().int().min(2000).max(2099)}).parse(request.params);
     return budget.year(year);
   });
+  app.put('/api/budget/settings',async request=>budget.updateSettings(budgetSettingsSchema.parse(request.body)));
   app.put('/api/budget/cells',async request=>budget.updateCell(budgetCellSchema.parse(request.body)));
   app.put('/api/budget/cells/bulk',async request=>{
     const items=z.array(budgetCellSchema).min(1).max(24).parse(request.body);

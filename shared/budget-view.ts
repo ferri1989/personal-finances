@@ -2,6 +2,8 @@ import type { BudgetData, BudgetLine } from './budget.js';
 
 export type BudgetRow = BudgetLine & {
   plannedCents: number;
+  goalCents: number;
+  carryoverCents: number;
   actualCents: number;
   originalCents: number;
   remainingCents: number | null;
@@ -16,15 +18,18 @@ export function budgetOverview(data: BudgetData, periods: string[]) {
   const selected = new Set(periods);
   const rows: BudgetRow[] = data.lines.map(line => {
     const cells = data.cells.filter(cell => cell.lineId === line.id && selected.has(cell.period));
-    const plannedCents = cells.reduce((sum, cell) => sum + (cell.plannedCents ?? 0), 0);
+    // A carry between two selected months is the same money, not a second allocation.
+    const carryoverCents=(data.carryovers??[]).filter(c=>c.lineId===line.id&&selected.has(c.targetPeriod)&&(line.kind==='funding'||c.sourcePeriod===null||!selected.has(c.sourcePeriod))).reduce((sum,c)=>sum+c.amountCents,0);
+    const goalCents=cells.reduce((sum,cell)=>sum+(cell.plannedCents??0),0);
+    const plannedCents = goalCents+carryoverCents;
     const actualCents = cells.reduce((sum, cell) => sum + cell.actualCents, 0);
-    return { ...line, plannedCents, actualCents, originalCents: cells.reduce((sum, cell) => sum + (cell.originalCents ?? 0), 0),
+    return { ...line, plannedCents, actualCents, goalCents, carryoverCents, originalCents: cells.reduce((sum, cell) => sum + (cell.originalCents ?? 0), 0),
       remainingCents: line.kind === 'funding' ? null : plannedCents - actualCents,
-      hasPlan: cells.some(cell => cell.plannedCents !== null), hasOriginal: cells.some(cell => cell.originalCents !== null) };
+      hasPlan: cells.some(cell => cell.plannedCents !== null)||carryoverCents!==0, hasOriginal: cells.some(cell => cell.originalCents !== null) };
   });
   const sum = (kind: string, field: 'plannedCents'|'actualCents') => rows.filter(row => row.kind === kind).reduce((total, row) => total + row[field], 0);
   const incomeCents = sum('income','plannedCents');
-  const fundingCents = sum('funding','plannedCents');
+  const fundingCents = sum('funding','plannedCents')+rows.filter(row=>row.kind==='expense'||row.kind==='saving').reduce((s,row)=>s+row.carryoverCents,0);
   const expenseCents = sum('expense','plannedCents');
   const savingCents = sum('saving','plannedCents');
   const actualOutCents = sum('expense','actualCents') + sum('saving','actualCents');

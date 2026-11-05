@@ -11,7 +11,8 @@ Se abre en `http://127.0.0.1:4310`. Mantén la ventana de la aplicación abierta
 ## Incluido
 
 - Alta y edición de cuentas: ING, Openbank, Sabadell, MyInvestor, otro banco y efectivo.
-- Tipos: corriente, ahorro, efectivo de inversión y efectivo.
+- Tipos: corriente, ahorro, depósito bancario, efectivo de inversión y efectivo.
+- Depósitos: importe del capital, interés anual (%), fecha de inicio y vencimiento. Se pueden editar, archivar y filtrar desde Cuentas; su capital se incluye en Ahorro y en el saldo total, sin sumar intereses futuros ni liquidar automáticamente al vencer. Registra también la salida en la cuenta de origen si ya figura en la aplicación para evitar duplicar el dinero. Los depósitos no admiten importación de extractos.
 - Nombre, titular opcional y cuatro últimos dígitos opcionales.
 - Saldo inicial positivo, cero o negativo y fecha de referencia por cuenta.
 - Totales de cuentas activas, búsqueda y filtros.
@@ -46,7 +47,7 @@ La primera ejecución de esta versión carga, una sola vez, noviembre y diciembr
 
 - Ingreso Jordi: 4.600 €/mes en 2027; ingreso MJ: 1.186 €/mes. En 2026 se respetan las entradas de la captura: principal de 0 € en noviembre y 4.369 € en diciembre, más devolución del préstamo a la madre de 464 € en cada mes.
 - Los 366 € de «Paro MJ» pasan a reparaciones del coche en diciembre de 2026, sin duplicar la partida.
-- Los 2.079 € de Abril se reservan para ella, fuera del dinero disponible para gastos familiares.
+- Los 2.079 € de Abril son saldo acumulado reservado para ella, fuera del dinero disponible para gastos familiares.
 - Los 1.500 € reservados en diciembre de 2026 para el siguiente presupuesto se muestran como remanente de enero de 2027. No crean un segundo ingreso real.
 - Los saldos bancarios y «Cuenta Piso» no son ingresos ni gastos del presupuesto.
 - Las filas de teléfono, suscripciones y gasolina de 2026 se recuperan de la primera captura, fuera del recorte posterior. Con ellas cuadran ambos totales mensuales.
@@ -56,6 +57,16 @@ Se puede consultar el plan actual, el real clasificado, la diferencia pendiente 
 Cada movimiento se asigna por su fecha operativa/contable usada en la importación. Una devolución asignada a una partida de gasto reduce su real. Los movimientos sin asignar no se incorporan al real y su número se muestra expresamente. Excluye ambos lados de los traspasos internos; no vuelvas a clasificar una liquidación de tarjeta como gasto si también has importado sus compras. Las reservas y aportaciones a inversiones se muestran separadas del consumo.
 
 Si hay movimientos en un mes sin captura presupuestaria, el mes aparece con previsiones vacías. Una diferencia negativa muestra la financiación que falta; el sistema no crea ingresos o saldos iniciales ficticios para cerrar el presupuesto a cero. La diferencia pendiente no equivale a pagos pendientes si aún quedan movimientos por importar o clasificar. Los remanentes son financiación prevista, no movimientos reales.
+
+## Cierre mensual y saldos acumulados
+
+En Presupuesto, selecciona un mes y pulsa **Revisar cierre de mes**. La vista previa muestra el objetivo, el saldo anterior, el real, el sobrante o déficit y el disponible del mes siguiente para todas las partidas de gastos y ahorro. Solo se puede cerrar un mes terminado, sin movimientos pendientes de asignar y con los meses anteriores cerrados. Confirma también que has importado todos los extractos.
+
+Disponible = objetivo del mes + saldo anterior − real asignado. El sobrante o déficit se arrastra conservando su signo. Los objetivos y las capturas originales no se sobrescriben. El cierre crea el mes siguiente si hace falta, también al cambiar de año. No crea movimientos bancarios ni ingresos reales, y los totales de varios meses cuentan una sola vez los arrastres entre ellos.
+
+El mes cerrado no admite cambios de objetivos, asignaciones ni nuevas importaciones. Pulsa **Mes cerrado · Deshacer cierre** para corregirlo y volver a cerrarlo. Si el siguiente mes ya está cerrado, reabre primero el más reciente. Los cierres, reaperturas y saldos iniciales quedan en el historial.
+
+Los 2.079 € de Abril se reinterpretan una sola vez como saldo inicial acumulado desde noviembre de 2026, con objetivo nuevo de 0 €, conservando el original. Esta corrección automática solo se aplica si la previsión original sigue sin editar. Al editar el presupuesto de una partida puedes consultar o establecer su saldo previo al seguimiento; si ya procede de un cierre debes reabrir ese cierre para corregirlo. Un saldo inicial ya conocido en el mes siguiente no se suma a otro arrastre distinto sin revisarlo, para evitar duplicaciones. Al cerrar diciembre de 2026, el remanente original de 1.500 € previsto para enero, si no se ha editado, se sustituye por los arrastres calculados; al deshacer se restaura su efecto.
 
 ## Datos locales y OneDrive
 

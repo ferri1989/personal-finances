@@ -15,13 +15,17 @@ const createAccount=(store:AccountStore)=>store.create({name:'Prueba',bank:'ING'
 test('las 14 mensualidades cuadran exactamente con las capturas y las aclaraciones',()=>{
   const store=new AccountStore(':memory:');try{const budget=new BudgetService(store);const data26=budget.year(2026);const data27=budget.year(2027);
     assert.equal(data26.periods.length+data27.periods.length,14);
-    for(const m of [...data26.months,...data27.months])assert.equal(m.expenseCents+m.savingCents,sourceMonthlyOut[m.period]*100,m.period);
+    for(const data of [data26,data27])for(const p of data.periods){const ids=new Set(data.lines.filter(l=>l.kind==='expense'||l.kind==='saving').map(l=>l.id));assert.equal(data.cells.filter(c=>c.period===p&&ids.has(c.lineId)).reduce((s,c)=>s+(c.originalCents??0),0),sourceMonthlyOut[p]*100,p);}
     assert.equal(data27.months.every(m=>m.incomeCents===578600),true);
     assert.equal(data27.months[0].fundingCents,150000);
     assert.equal(data27.months.reduce((sum,m)=>sum+m.incomeCents+m.fundingCents-m.expenseCents-m.savingCents,0),0,'2027 queda a cero con el remanente anterior');
     assert.equal(data27.months.reduce((s,m)=>s+m.actualIncomeCents,0),0,'el remanente no crea ingresos reales');
     assert.equal(data26.cells.find(c=>c.lineId==='reparaciones-coche'&&c.period==='2026-12')?.plannedCents,36600);
-    assert.equal(data26.cells.find(c=>c.lineId==='reserva-abril'&&c.period==='2026-12')?.plannedCents,207900);
+    const april=data26.cells.find(c=>c.lineId==='reserva-abril'&&c.period==='2026-12')!;
+    assert.equal(april.plannedCents,0);
+    assert.equal(april.carryoverCents,0);
+    assert.equal(data26.cells.find(c=>c.lineId==='reserva-abril'&&c.period==='2026-11')?.carryoverCents,207900);
+    assert.equal(april.originalCents,207900);
     assert.equal(data27.cells.find(c=>c.lineId==='pensiones'&&c.period==='2027-12')?.plannedCents,150000);
   }finally{store.close();}
 });
@@ -79,4 +83,35 @@ test('API guarda cambios en varias mensualidades sin alterar originales y valida
     assert.equal((await app.inject({method:'PUT',url:'/api/budget/cells',headers,payload:{lineId:'comida',period:'2027-01',plannedCents:-1,expectedVersion:2}})).statusCode,400);
     assert.equal((await app.inject({method:'POST',url:'/api/budget/lines',headers,payload:{name:'Nueva previsión',kind:'expense',group:'Prueba',note:''}})).statusCode,201);
   }finally{await app.close();}
+});
+
+test('la nómina de final de mes y los ingresos posteriores cuentan para el mes siguiente',()=>{
+  const store=new AccountStore(':memory:');try{const budget=new BudgetService(store);const a=createAccount(store);
+    const early=addMovement(store,a.id,'2026-11-10',30000),payroll=addMovement(store,a.id,'2026-11-27',436900),after=addMovement(store,a.id,'2026-11-28',46400),spend=addMovement(store,a.id,'2026-11-29',-5000),pending=addMovement(store,a.id,'2026-11-30',1000),decPayroll=addMovement(store,a.id,'2026-12-28',460000);
+    budget.assign({items:[{entryId:early,expectedVersion:0},{entryId:after,expectedVersion:0}],lineId:'devolucion-madre',excluded:false});
+    budget.assign({items:[{entryId:spend,expectedVersion:0}],lineId:'comida',excluded:false});
+    // Antes de identificar la nómina, todo cuenta en su mes natural.
+    let nov=budget.year(2026).months.find(m=>m.period==='2026-11')!;
+    assert.equal(nov.actualIncomeCents,76400);assert.equal(nov.unassignedCount,2);
+    budget.assign({items:[{entryId:payroll,expectedVersion:0},{entryId:decPayroll,expectedVersion:0}],lineId:'ingreso-jordi',excluded:false});
+    const y26=budget.year(2026);nov=y26.months.find(m=>m.period==='2026-11')!;const dec=y26.months.find(m=>m.period==='2026-12')!;
+    assert.equal(nov.actualIncomeCents,30000,'solo el ingreso anterior a la nómina queda en noviembre');
+    assert.equal(nov.actualOutCents,5000,'los gastos siguen en su mes');
+    assert.equal(dec.actualIncomeCents,436900+46400,'nómina e ingresos posteriores pasan a diciembre');
+    assert.equal(nov.unassignedCount,0);assert.equal(dec.unassignedCount,1,'un ingreso sin asignar posterior a la nómina también pasa');
+    const jan=budget.year(2027).months.find(m=>m.period==='2027-01')!;
+    assert.equal(jan.actualIncomeCents,460000,'la nómina de diciembre abre enero del año siguiente');
+    assert.ok(!budget.year(2026).cells.some(c=>c.lineId==='ingreso-jordi'&&c.period==='2026-12'&&c.actualCents===436900+460000));
+    void pending;
+  }finally{store.close();}
+});
+
+test('la nómina que entra antes del día 15 no mueve ingresos',()=>{
+  const store=new AccountStore(':memory:');try{const budget=new BudgetService(store);const a=createAccount(store);
+    const payroll=addMovement(store,a.id,'2026-11-02',436900);
+    budget.assign({items:[{entryId:payroll,expectedVersion:0}],lineId:'ingreso-jordi',excluded:false});
+    assert.equal(budget.year(2026).months.find(m=>m.period==='2026-11')!.actualIncomeCents,436900);
+    assert.throws(()=>budget.updateSettings({payrollLineId:'comida'}),{statusCode:400});
+    budget.updateSettings({payrollLineId:'ingreso-mj'});assert.equal(budget.year(2026).payrollLineId,'ingreso-mj');
+  }finally{store.close();}
 });
